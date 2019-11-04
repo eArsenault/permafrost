@@ -1,0 +1,46 @@
+#permafrost-graph-panel {
+    margin-top: 50px;
+    display: flex;
+    height:550px;
+}
+
+#permafrost-graph-grid {
+    height:100%;
+    width:90%;
+
+    column-gap: 10px;
+    row-gap: 10px;
+    display:grid;
+    grid-template-columns: 30% 30% 30%;
+    grid-row: 60% 30%;
+}
+
+#permafrost-main-graph {
+    grid-column-start: 1;
+    grid-column-end: 3;
+    grid-row-start: 1;
+}
+
+#permafrost-sub-graph {
+    grid-column-start: 3;
+    grid-column-end: 4;
+    grid-row-start: 1;
+    grid-row-end: 3;
+}
+
+#permafrost-label-first {
+    grid-column-start: 1;
+    grid-row-start: 2;
+}
+
+#permafrost-label-second {
+    grid-column-start: 2;
+    grid-row-start: 2;
+    align-items: right;
+
+}
+
+#permafrost-map {
+    width: 100%;
+    max-width: 800px;
+}
