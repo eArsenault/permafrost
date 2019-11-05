@@ -28,10 +28,7 @@ def app_page_layout(page_layout,
                         children=[
                             'View on GitHub'
                         ],
-                        href="http://github.com/plotly/dash-bio/"
-                        "blob/master/tests/dashbio_demos/app_{}.py".format(
-                            app_name
-                        ),
+                        href="https://github.com/eArsenault/permafrost",
                         style={'color': 'white' if light_logo else 'black',
                                'border': 'solid 1px white' if light_logo else 'solid 1px black'}
                     ),

@@ -6,8 +6,9 @@ from datetime import datetime
 
 import dash_html_components as html
 import dash_core_components as dcc
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 import dash_table
+from dash.exceptions import PreventUpdate
 
 import flask
 import pandas as pd
@@ -47,42 +48,45 @@ def trumpet_curve(df, col_time):
     #print(filtered_df.iloc[minindex])
     return maxindex,minindex
 
-def generate_table(dataframe, max_rows=10):
-    return html.Table(
-        # Header
-        [html.Tr([html.Th(col) for col in dataframe.columns])] +
+def table_from_raw(raw_data,table_id,max_rows=20,skiprows=0,skipcols=0,header=False):
+    data = raw_data[skiprows:min(len(raw_data),max_rows)]
+    data = [data_row[skipcols:] for data_row in data]
+    indexes = range(len(data[0]))
 
-        # Body
-        [html.Tr([
-            html.Td(dataframe.iloc[i][col]) for col in dataframe.columns
-        ]) for i in range(min(len(dataframe), max_rows))]
+    if header:
+        columns = [{"name": i, "id": i} for i in data[0]]
+        data = data[1:]
+    else:
+        columns = [{"name": "col{}".format(i), "id": "col{}".format(i)} for i in indexes]
+
+    return dash_table.DataTable(
+        id=table_id,
+
+        data = [{columns[i]["name"]: data_row[i] for i in indexes} for data_row in data],
+        columns = columns,
+        style_table={'maxHeight':'550px','overflowY':'scroll'}
     )
+
+def dataframe_from_raw(raw_data,skiprows=0,skipcols=0,header=False):
+    data = raw_data[skiprows:]
+    data = [data_row[skipcols:] for data_row in data]
+    indexes = range(len(data[0]))
+
+    if header:
+        columns = [{"name": i, "id": i} for i in data[0]]
+        data = data[1:]
+    else:
+        columns = [{"name": "col{}".format(i), "id": "col{}".format(i)} for i in indexes]
+    
+    df = pd.DataFrame.from_records(data, columns = columns)
+    print(df)
 
 text_style = {
     'color': "#506784",
     'font-family': 'Open Sans'
 }
 
-DATAPATH = os.path.join(".", "sample_data", "alignment_viewer_")
-
-# Datasets
-with open('{}sample.fasta'.format(DATAPATH), encoding='utf-8') as data_file:
-    dataset1 = data_file.read()
-
-with open('{}p53.fasta'.format(DATAPATH), encoding='utf-8') as data_file:
-    dataset2 = data_file.read()
-
-with open('{}p53_clustalo.fasta'.format(DATAPATH), encoding='utf-8') as data_file:
-    dataset3 = data_file.read()
-
-df = pd.read_csv('https://raw.githubusercontent.com/eArsenault/permafrost/master/Sample_Data_Set.csv', skiprows=3)
-
-DATASETS = {
-    'dataset1': dataset1,
-    'dataset2': dataset2,
-    'dataset3': dataset3,
-}
-
+df = pd.read_csv(os.path.join(".","assets","sample_data","Sample_Data_Set.csv"), skiprows=3)
 df = preprocess(df)
 
 col_names = [
@@ -107,8 +111,6 @@ col_colours = [
 
 for name in  col_names:
     df = remove_outlier(df,name)
-
-trumpet_curve(df,'Time')
 
 def description():
     return 'View multiple sequence alignments of genomic or protenomic sequences.'
@@ -138,32 +140,13 @@ def layout():
                                 ),
                                 html.P(
                                     """
-                                    The Alignment Viewer (MSA) component is used to align
-                                    multiple genomic or proteomic sequences from a FASTA or
-                                    Clustal file. Among its extensive set of features,
-                                    the multiple sequence alignment viewer can display
-                                    multiple subplots showing gap and conservation info,
-                                    alongside industry standard colorscale support and
-                                    consensus sequence. No matter what size your alignment
-                                    is, Alignment Viewer is able to display your genes or
-                                    proteins snappily thanks to the underlying WebGL
-                                    architecture powering the component. You can quickly
-                                    scroll through your long sequence with a slider or a
-                                    heatmap overview.
+                                    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
                                     """
                                 ),
                                 html.P(
                                     """
-                                    Note that the AlignmentChart only returns a chart of
-                                    the sequence, while AlignmentViewer has integrated
-                                    controls for colorscale, heatmaps, and subplots allowing
-                                    you to interactively control your sequences.
-                                    """
-                                ),
-                                html.P(
-                                    """
-                                    Read more about the component here:
-                                    https://github.com/plotly/react-alignment-viewer
+                                    Source code available at: 
+                                    https://github.com/eArsenault/permafrost
                                     """
                                 ),
                             ])
@@ -172,42 +155,17 @@ def layout():
                             label='Add Data',
                             value='alignment-tab-select',
                             children=html.Div(className='control-tab', children=[
-                                html.Div(className='app-controls-block', children=[
-                                    html.Div(
-                                        className='fullwidth-app-controls-name',
-                                        children="Select preloaded dataset"
-                                    ),
-                                    dcc.Dropdown(
-                                        id='alignment-dropdown',
-                                        options=[
-                                            {
-                                                'label': 'Sample.csv',
-                                                'value': 'dataset1'
-                                            },
-                                            {
-                                                'label': 'P53.fasta naive',
-                                                'value': 'dataset2'
-                                            },
-                                            {
-                                                'label': 'P53.fasta aligned (ClustalW)',
-                                                'value': 'dataset3'
-                                            },
-                                        ],
-                                        value='dataset3',
-                                    )
-                                ]),
-
 
                                 html.Div(className='app-controls-block', children=[
                                     html.Div(className='fullwidth-app-controls-name',
-                                             children="Upload your own dataset"),
+                                             children="Upload your own dataset (.csv)"),
                                     html.A(
                                         html.Button(
                                             "Download sample data",
                                             className='control-download'
                                         ),
-                                        href="/assets/sample_data/p53_clustalo.fasta",
-                                        download="p53_clustalo.fasta",
+                                        href="/assets/sample_data/Sample_Data_Set.csv",
+                                        download="Sample_Data_Set.csv",
                                     ),
                                     html.Div(id='alignment-file-upload-container', children=[
                                         dcc.Upload(
@@ -220,6 +178,22 @@ def layout():
                                     ])
                                 ]),
 
+                                html.Div(className='app-controls-block', children=[
+                                    html.Label('Rows to skip:'),
+                                    dcc.Input(id='skiprows_option',value=0, type='number'),
+
+                                    html.Label('Columns to skip:'),
+                                    dcc.Input(id='skipcols_option',value=0, type='number'),
+
+                                    dcc.Checklist(
+                                        id='header_option',
+                                        options=[
+                                            {'label': 'My data has a header', 'value': 'YES'},
+                                        ],
+                                        value=[],
+                                        style={'padding':'5px'}
+                                    )  
+                                ]),
                                 dcc.RadioItems(
                                     id='view-radio',
                                     options=[
@@ -227,7 +201,7 @@ def layout():
                                         {'label': 'Graph view', 'value': 'graph'},
                                     ],
                                     value='table'
-                                )  
+                                )
                             ])
                         )
                     ],
@@ -257,26 +231,51 @@ def layout():
                 ]),
             ]),
         ]),
-        dcc.Store(id='alignment-data-store'),
+        dcc.Store(id='permafrost-data-store'),
     ])
 
 
 def callbacks(_app):
 
+    @_app.callback(
+        Output('permafrost-table','children'),
+        [Input('permafrost-data-store', 'modified_timestamp'),
+         Input('skiprows_option', 'value'),
+         Input('skipcols_option', 'value'),
+         Input('header_option', 'value')],
+        [State('permafrost-data-store', 'data')]
+    )
+    def update_table(ts, skiprows, skipcols, header, data):  
+        try: 
+            print(data[:5]) 
+        except: 
+            print(data) 
+
+        if ts is None or data == {}:
+            raise PreventUpdate
+        
+        if header == ['YES']:
+            header = True
+        else:
+            header = False
+
+        return table_from_raw(data,table_id='data-table',skiprows=skiprows,skipcols=skipcols,header=header)
+
     # Handle file upload/selection into data store
     @_app.callback(
-        Output('alignment-data-store', 'data'),
-        [Input('alignment-dropdown', 'value'),
-         Input('alignment-file-upload', 'contents'),
+        Output('permafrost-data-store', 'data'),
+        [Input('alignment-file-upload', 'contents'),
          Input('alignment-file-upload', 'filename')]
     )
-    def update_storage(dropdown, contents, filename):
+    def update_storage(contents, filename):
 
-        if (contents is not None) and ('fasta' in filename):
+        if (contents is not None) and ('csv' in filename):
             content_type, content_string = contents.split(',')
             content = base64.b64decode(content_string).decode('UTF-8')
+            content = [text.split(",") for text in content.replace("\r","").split("\n")]
+            print(content[:5])
         else:
-            content = DATASETS[dropdown]
+            content = {}
 
         return content
 
@@ -316,7 +315,6 @@ def callbacks(_app):
 
                 legend_orientation='h',
                 hovermode='closest',
-                title="test",
                 yaxis={'zeroline':False}
             )
         }
@@ -367,7 +365,6 @@ def callbacks(_app):
                 margin={'l': 40, 'b': 40, 't': 40, 'r': 40},
                 hovermode='closest',
                 xaxis={'range':[-30,15], 'zeroline': False},
-                title="test",
 
                 legend_orientation='h',
                 showlegend=True,
@@ -375,16 +372,21 @@ def callbacks(_app):
         }
 
     @_app.callback(
-        Output('permafrost-graph-panel', 'children'),
+        Output('permafrost-graph-panel','children'),
         [Input('alignment-tabs', 'value'),
-        Input('view-radio', 'value')])
-    def render_content(tab,radio):
+         Input('view-radio', 'value')],
+        [State('skiprows_option', 'value'),
+         State('skipcols_option', 'value'),
+         State('header_option', 'value'),
+         State('permafrost-data-store', 'data')]
+    )
+    def render_content(tab,radio,skiprows,skipcols,header,data):
         if tab == 'what-is':
-            return html.Div([dcc.Graph(id='permafrost-map',
+            return dcc.Graph(id='permafrost-map',
                     figure={
                         'data':[go.Scattermapbox(
-                            lat = ['44.2250', '44.0'],
-                            lon = ['-76.4951', '-76.0'],
+                            lat = ['44.2250'],
+                            lon = ['-76.4951'],
                             
                             mode = 'markers',
                             marker = go.Marker(
@@ -392,14 +394,12 @@ def callbacks(_app):
                             ),
 
                             name="Sites",
-                            text=["Test Site #1","Test Site #2"],
-                            hoverinfo='text',
-                            hovertext=["Test Site #1","Test Site #2"]
+                            text=["Test Site #1"],
+                            #hoverinfo='text',
                         )],
                         'layout': go.Layout(
                             margin={'l': 10, 'b': 10, 't': 10, 'r': 10},
                             autosize = True,
-                            showlegend = True,
                             hovermode = 'closest',
                             geo = dict(
                                 projection = dict(type = "equirectangular"),
@@ -415,43 +415,17 @@ def callbacks(_app):
                             )
                         )
                     }
-            )
-            ])
-                
+            )   
         elif radio == 'table':
-            return dash_table.DataTable(
-                id='table',
-                columns=[{"name": i, "id": i} for i in df.columns],
-                data=df.to_dict("rows"),
-                style_table={
-                    'maxHeight': '100%',
-                    'overflowY': 'scroll'
-                })
-                
-                #generate_table(df)
-        else:
-            return html.Div(id='permafrost-graph-grid',className='permafrost-graph-grid',children=[
-                html.Div(id='permafrost-main-graph',className='permafrost-main-graph',children=[
-                    dcc.Graph(
-                            id = 'graph-temptime',
-                            hoverData={"points": [{"x": datetime.strptime("2010-01-01 00:00","%Y-%m-%d %H:%M")}]}
-                    )
-                ]),
-                html.Div(id='permafrost-label-first',className='permafrost-label-first',children=[
-                    html.Label('Start Date (MM/DD/YYYY)'),
-                    dcc.Input(id = 'input-text',value='09/25/1999', type='text'),
-                ]),
-                html.Div(id='permafrost-label-second',className='permafrost-label-second',children=[
-                    html.Label('End Date (MM/DD/YYYY)'),
-                    dcc.Input(id = 'end-text',value='08/29/2010', type='text'),
-                ]),
-                html.Div(id='permafrost-sub-graph',className='permafrost-sub-graph',children=[
-                    dcc.Graph(
-                        id = 'graph-depthtemp',
-                    )
-                ]),
+            return html.Div(id='permafrost-table',children=[
+                html.P("Please add a dataset.")
             ])
 
+        else:
+            print(data[:5])
+            dataframe_from_raw(data,skiprows=skiprows,skipcols=skipcols,header=header)
+            return html.P('AH')
+            
     @_app.callback(
         Output('click-data', 'children'),
         [Input('permafrost-map', 'clickData')])
