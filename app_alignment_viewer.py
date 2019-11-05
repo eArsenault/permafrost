@@ -38,14 +38,10 @@ def preprocess(df_in): #
 #def plot_extrema():
 def trumpet_curve(df, col_time):
     filtered_df = df[df.columns[~df.columns.isin([col_time])]]
-    print(filtered_df)
 
     maxindex = filtered_df[filtered_df.max().idxmax()].idxmax()
     minindex = filtered_df[filtered_df.min().idxmin()].idxmin()
 
-    print(filtered_df[filtered_df.min().idxmin()].idxmin())
-    #print(filtered_df.iloc[maxindex])
-    #print(filtered_df.iloc[minindex])
     return maxindex,minindex
 
 def table_from_raw(raw_data,table_id,max_rows=20,skiprows=0,skipcols=0,header=False):
@@ -73,21 +69,28 @@ def dataframe_from_raw(raw_data,skiprows=0,skipcols=0,header=False):
     indexes = range(len(data[0]))
 
     if header:
-        columns = [{"name": i, "id": i} for i in data[0]]
+        columns = data[0]
         data = data[1:]
     else:
-        columns = [{"name": "col{}".format(i), "id": "col{}".format(i)} for i in indexes]
+        columns = ["col{}".format(i) for i in indexes]
     
-    df = pd.DataFrame.from_records(data, columns = columns)
+    global df
+    df = pd.DataFrame.from_records(data,columns=columns)
+    ##run specific preprocessing
+    df.drop(df.tail(1).index,inplace=True)
     print(df)
+    df = preprocess(df)
+    for name in  col_names:
+        df[name] = df[name].astype(float)
+        df = remove_outlier(df,name)
+
+    return df
+
 
 text_style = {
     'color': "#506784",
     'font-family': 'Open Sans'
 }
-
-df = pd.read_csv(os.path.join(".","assets","sample_data","Sample_Data_Set.csv"), skiprows=3)
-df = preprocess(df)
 
 col_names = [
     'Bead #1(-0.60m)',
@@ -108,9 +111,6 @@ col_colours = [
     'yellow',
     'brown'
 ]
-
-for name in  col_names:
-    df = remove_outlier(df,name)
 
 def description():
     return 'View multiple sequence alignments of genomic or protenomic sequences.'
@@ -208,29 +208,7 @@ def layout():
                 ),
             ]),
         ]),
-        html.Div(id='permafrost-graph-panel', children=[ 
-            html.Div(id='permafrost-graph-grid',className='permafrost-graph-grid',children=[ #dcc.Loading(className='dashbio-loading', children=
-                html.Div(id='permafrost-main-graph',className='permafrost-main-graph',children=[
-                    dcc.Graph(
-                            id = 'graph-temptime',
-                            hoverData={"points": [{"x": datetime.strptime("2010-01-01 00:00","%Y-%m-%d %H:%M")}]}
-                    )
-                ]),
-                html.Div(id='permafrost-label-first',className='permafrost-label-first',children=[
-                    html.Label('Start Date (MM/DD/YYYY)'),
-                    dcc.Input(id = 'input-text',value='09/25/1999', type='text'),
-                ]),
-                html.Div(id='permafrost-label-second',className='permafrost-label-second',children=[
-                    html.Label('End Date (MM/DD/YYYY)'),
-                    dcc.Input(id = 'end-text',value='08/29/2010', type='text'),
-                ]),
-                html.Div(id='permafrost-sub-graph',className='permafrost-sub-graph',children=[
-                    dcc.Graph(
-                        id = 'graph-depthtemp',
-                    )
-                ]),
-            ]),
-        ]),
+        html.Div(id='permafrost-graph-panel'),
         dcc.Store(id='permafrost-data-store'),
     ])
 
@@ -246,10 +224,6 @@ def callbacks(_app):
         [State('permafrost-data-store', 'data')]
     )
     def update_table(ts, skiprows, skipcols, header, data):  
-        try: 
-            print(data[:5]) 
-        except: 
-            print(data) 
 
         if ts is None or data == {}:
             raise PreventUpdate
@@ -273,7 +247,6 @@ def callbacks(_app):
             content_type, content_string = contents.split(',')
             content = base64.b64decode(content_string).decode('UTF-8')
             content = [text.split(",") for text in content.replace("\r","").split("\n")]
-            print(content[:5])
         else:
             content = {}
 
@@ -422,9 +395,28 @@ def callbacks(_app):
             ])
 
         else:
-            print(data[:5])
             dataframe_from_raw(data,skiprows=skiprows,skipcols=skipcols,header=header)
-            return html.P('AH')
+            return html.Div(id='permafrost-graph-grid',className='permafrost-graph-grid',children=[
+                html.Div(id='permafrost-main-graph',className='permafrost-main-graph',children=[
+                    dcc.Graph(
+                            id = 'graph-temptime',
+                            hoverData={"points": [{"x": datetime.strptime("2010-01-01 00:00","%Y-%m-%d %H:%M")}]}
+                    )
+                ]),
+                html.Div(id='permafrost-label-first',className='permafrost-label-first',children=[
+                    html.Label('Start Date (MM/DD/YYYY)'),
+                    dcc.Input(id = 'input-text',value='09/25/1999', type='text'),
+                ]),
+                html.Div(id='permafrost-label-second',className='permafrost-label-second',children=[
+                    html.Label('End Date (MM/DD/YYYY)'),
+                    dcc.Input(id = 'end-text',value='08/29/2010', type='text'),
+                ]),
+                html.Div(id='permafrost-sub-graph',className='permafrost-sub-graph',children=[
+                    dcc.Graph(
+                        id = 'graph-depthtemp',
+                    )
+                ]),
+            ])
             
     @_app.callback(
         Output('click-data', 'children'),
